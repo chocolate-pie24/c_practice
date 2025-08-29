@@ -11,7 +11,25 @@ OBJ_FILES = $(SRC_FILES:%=$(OBJ_DIR)/%.o)
 INCLUDE_FLAGS = -Iinclude
 CC = /opt/homebrew/opt/llvm/bin/clang
 
-COMPILER_FLAGS = -Wall -Wextra -std=c17
+COMPILER_FLAGS = -Wall -Wextra -std=c11
+COMPILER_FLAGS += -Wconversion -Wsign-conversion
+COMPILER_FLAGS += -Wformat=2 -Wformat-security
+COMPILER_FLAGS += -Wstrict-prototypes -Wold-style-definition
+COMPILER_FLAGS += -Wmissing-prototypes -Wmissing-declarations
+COMPILER_FLAGS += -Wshadow
+COMPILER_FLAGS += -Wcast-qual -Wcast-align
+COMPILER_FLAGS += -Wpointer-arith
+COMPILER_FLAGS += -Wundef
+COMPILER_FLAGS += -Wswitch-enum
+COMPILER_FLAGS += -Wvla
+COMPILER_FLAGS += -pedantic-errors
+COMPILER_FLAGS += -Weverything
+COMPILER_FLAGS += -Wshorten-64-to-32
+COMPILER_FLAGS += -Wdouble-promotion
+COMPILER_FLAGS += -Wcomma
+COMPILER_FLAGS += -Wfloat-equal
+COMPILER_FLAGS += -Wno-declaration-after-statement
+
 ifeq ($(BUILD_MODE), RELEASE_BUILD)
 	COMPILER_FLAGS += -O3 -DRELEASE_BUILD -DPLATFORM_MACOS
 else
