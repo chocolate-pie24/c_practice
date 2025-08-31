@@ -8,7 +8,7 @@
 
 enum {
     OPAQUE_COUNTER_DEFAULT_SCRATCH_SIZE = 1024,
-    OPAQUE_COUNTER_HISTROY_COUNT = 128,
+    OPAQUE_COUNTER_HISTROY_COUNT = 5,         /**< 履歴記憶件数 */
 };
 
 typedef enum {
@@ -26,10 +26,12 @@ typedef struct opaque_counter_operation_history {
 struct opaque_counter {
     char* name;                                     /**< オブジェクトネームラベル */
     void* scrach;                                   /**< 作業用データ格納領域 */
-    opaque_counter_operation_history_t* histories;  /**< 履歴用リングバッファ TODO: 型をring_buffer_tに変更 */
+    opaque_counter_operation_history_t* histories;  /**< 履歴用リングバッファ */
+    size_t buffer_head;                             /**< 履歴用リングバッファ(head) */
+    size_t buffer_tail;                             /**< 履歴用リングバッファ(tail) */
+    size_t buffer_len;
+    size_t buffer_capacity;
     opaque_counter_config_t config;                 /**< 設定値オブジェクト */
-    size_t scratch_size;                            /**< 作業用データ格納領域メモリサイズ */
-    size_t history_size;                            /**< 履歴記憶件数 */
     int32_t counter;                                /**< 現在のカウント値 */
 };
 

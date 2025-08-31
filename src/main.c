@@ -6,7 +6,8 @@ int main(int argc_, char** argv_) {
     (void)argc_;
     (void)argv_;
 
-    opaque_counter_create_ex(0, 0, 0);
+    test_opaque_counter_create_ex();
+    test_opaque_counter_destroy();
 
     return 0;
 }

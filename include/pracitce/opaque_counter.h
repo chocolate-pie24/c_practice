@@ -24,7 +24,7 @@ opaque_counter_error_t opaque_counter_default_create(opaque_counter_t** counter_
 
 opaque_counter_error_t opaque_counter_create_ex(opaque_counter_t** counter_, const char* const name_, const opaque_counter_config_t* const config_);
 
-opaque_counter_error_t opaque_counter_destroy(opaque_counter_t** counter_);
+void opaque_counter_destroy(opaque_counter_t** counter_);
 
 opaque_counter_error_t opaque_counter_inc(opaque_counter_t* const counter_);
 
@@ -37,5 +37,9 @@ opaque_counter_error_t opaque_counter_get(const opaque_counter_t* const counter_
 opaque_counter_error_t opaque_counter_range_get(const opaque_counter_t* const counter_, opaque_counter_config_t* const out_config_);
 
 opaque_counter_error_t opaque_counter_debug_print(const opaque_counter_t* const counter_);
+
+// for test
+void test_opaque_counter_create_ex(void);
+void test_opaque_counter_destroy(void);
 
 #endif
