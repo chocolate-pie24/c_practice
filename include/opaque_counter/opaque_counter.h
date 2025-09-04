@@ -42,7 +42,4 @@ opaque_counter_error_t opaque_counter_get(const opaque_counter_t* const counter_
 
 opaque_counter_error_t opaque_counter_range_get(const opaque_counter_t* const counter_, int32_t* out_min_, int32_t* out_max_);
 
-// test用に一時的に置いておく(そのうち移動)
-void test_opaque_counter(void);
-
 #endif

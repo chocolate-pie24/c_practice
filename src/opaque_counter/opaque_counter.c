@@ -4,22 +4,22 @@
 #include <stdbool.h>
 #include <string.h> // for memset_
 
-// begin for test only.
-// TODO: #ifdef TEST_BUILD
+#ifdef TEST_BUILD
 #include <assert.h>
-// end for test only.
+#endif
 
 #include "opaque_counter/opaque_counter.h"
 
 #include "internal/opaque_counter_history.h"
 #include "internal/opaque_counter_ring_history.h"
 
-// TODO: #ifdef TEST_BUILD
+#ifdef TEST_BUILD
 typedef struct test_param {
     uint16_t malloc_counter;    // malloc実行回数
     uint16_t malloc_fail_n;     // n回目のmallocで失敗
     bool fail_enable;
 } test_param_t;
+#endif
 
 struct opaque_counter {
     // これらはconfigオブジェクトと共通だが、labelをconst char*からchar*に変更している。
@@ -39,13 +39,17 @@ static char* oc_strdup(const char* const str_);
 
 static void test_opaque_counter_create(void);
 static void test_opaque_counter_destroy(void);
+static void test_opaque_counter_config_valid_check(void);
 
-// TODO: #ifdef TEST_BUILD
+#ifdef TEST_BUILD
 static test_param_t s_test_param;
+#endif
 
+#ifdef TEST_BUILD
 void test_opaque_counter(void) {
     test_opaque_counter_create();
     test_opaque_counter_destroy();
+    test_opaque_counter_config_valid_check();
 
     // TODO: remove this.
     {
@@ -77,6 +81,7 @@ void test_opaque_counter(void) {
     }
     // TODO: remove this.
 }
+#endif
 
 opaque_counter_error_t opaque_counter_create(opaque_counter_t** counter_, const opaque_counter_config_t* const config_) {
     opaque_counter_error_t ret = OPAQUE_COUNTER_INVALID_ARGUMENT;
@@ -161,10 +166,11 @@ cleanup:
     return;
 }
 
-// TODO: test
 bool opaque_counter_config_valid_check(const opaque_counter_config_t* const config_) {
     bool ret = false;
-    if(config_->min > config_->max) {
+    if(NULL == config_) {
+        ret = false;
+    } else if(config_->min > config_->max) {
         ret = false;
     } else if(config_->min > config_->initial) {
         ret = false;
@@ -179,8 +185,8 @@ bool opaque_counter_config_valid_check(const opaque_counter_config_t* const conf
 }
 
 static void* oc_malloc(size_t size_) {
-    // TODO #ifdef TEST_BUILD
     void* ret = NULL;
+#ifdef TEST_BUILD
     if(!s_test_param.fail_enable) {
         ret = malloc(size_);
     } else {
@@ -192,12 +198,16 @@ static void* oc_malloc(size_t size_) {
             s_test_param.malloc_counter++;
         }
     }
+#endif
+#ifndef TEST_BUILD
+    ret = malloc(size_);
+#endif
     return ret;
 }
 
 static char* oc_strdup(const char* const str_) {
-    // TODO #ifdef TEST_BUILD
     char* ret = NULL;
+#ifdef TEST_BUILD
     if(!s_test_param.fail_enable) {
         ret = strdup(str_);
     } else {
@@ -209,9 +219,14 @@ static char* oc_strdup(const char* const str_) {
             s_test_param.malloc_counter++;
         }
     }
+#endif
+#ifndef TEST_BUILD
+    ret = strdup(str_);
+#endif
     return ret;
 }
 
+#ifdef TEST_BUILD
 static void test_opaque_counter_create(void) {
     opaque_counter_error_t ret = OPAQUE_COUNTER_INVALID_ARGUMENT;
     s_test_param.fail_enable = false;
@@ -335,3 +350,89 @@ static void test_opaque_counter_destroy(void) {
         assert(NULL == counter);
     }
 }
+
+static void test_opaque_counter_config_valid_check(void) {
+    {
+        // 正常
+        opaque_counter_config_t config = { 0 };
+        config.history_cap = 128;
+        config.initial = 10;
+        config.label = "test";
+        config.max = 20;
+        config.min = 10;
+        bool ret = opaque_counter_config_valid_check(&config);
+        assert(ret);
+    }
+    {
+        // 正常
+        opaque_counter_config_t config = { 0 };
+        config.history_cap = 128;
+        config.initial = 20;
+        config.label = "test";
+        config.max = 20;
+        config.min = 10;
+        bool ret = opaque_counter_config_valid_check(&config);
+        assert(ret);
+    }
+    {
+        // 正常
+        opaque_counter_config_t config = { 0 };
+        config.history_cap = 128;
+        config.initial = 15;
+        config.label = "test";
+        config.max = 20;
+        config.min = 10;
+        bool ret = opaque_counter_config_valid_check(&config);
+        assert(ret);
+    }
+    {
+        // 異常(histroy_cap = 0)
+        opaque_counter_config_t config = { 0 };
+        config.history_cap = 0;
+        config.initial = 15;
+        config.label = "test";
+        config.max = 20;
+        config.min = 10;
+        bool ret = opaque_counter_config_valid_check(&config);
+        assert(!ret);
+    }
+    {
+        // 異常(min > max)
+        opaque_counter_config_t config = { 0 };
+        config.history_cap = 128;
+        config.initial = 15;
+        config.label = "test";
+        config.max = 10;
+        config.min = 20;
+        bool ret = opaque_counter_config_valid_check(&config);
+        assert(!ret);
+    }
+    {
+        // 異常(initial > max)
+        opaque_counter_config_t config = { 0 };
+        config.history_cap = 128;
+        config.initial = 30;
+        config.label = "test";
+        config.max = 20;
+        config.min = 10;
+        bool ret = opaque_counter_config_valid_check(&config);
+        assert(!ret);
+    }
+    {
+        // 異常(min > initial)
+        opaque_counter_config_t config = { 0 };
+        config.history_cap = 128;
+        config.initial = 0;
+        config.label = "test";
+        config.max = 20;
+        config.min = 10;
+        bool ret = opaque_counter_config_valid_check(&config);
+        assert(!ret);
+    }
+    {
+        // 異常(config == NULL)
+        bool ret = opaque_counter_config_valid_check(NULL);
+        assert(!ret);
+    }
+}
+#endif
