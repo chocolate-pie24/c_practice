@@ -21,6 +21,10 @@ typedef struct test_param {
 static void test_opaque_counter_create(void);
 static void test_opaque_counter_destroy(void);
 static void test_opaque_counter_config_valid_check(void);
+static void test_opaque_counter_inc(void);
+static void test_opaque_counter_dec(void);
+static void test_opaque_counter_add(void);
+static void test_opaque_counter_get(void);
 
 static test_param_t s_test_param;
 
@@ -28,6 +32,10 @@ void test_opaque_counter(void) {
     test_opaque_counter_create();
     test_opaque_counter_destroy();
     test_opaque_counter_config_valid_check();
+    test_opaque_counter_inc();
+    test_opaque_counter_dec();
+    test_opaque_counter_add();
+    test_opaque_counter_get();
 }
 #endif
 
@@ -40,6 +48,7 @@ struct opaque_counter {
     int32_t min;
     int32_t initial;
     int32_t max;
+    int32_t counter;
     char* label;
     opaque_counter_ring_history_t ring_history;
 };
@@ -47,7 +56,6 @@ struct opaque_counter {
 static void* oc_malloc(size_t size_);
 static char* oc_strdup(const char* const str_);
 
-// TODO: TEST_BUILDでカバレッジ計測
 opaque_counter_error_t opaque_counter_create(opaque_counter_t** counter_, const opaque_counter_config_t* const config_) {
     opaque_counter_error_t ret = OPAQUE_COUNTER_INVALID_ARGUMENT;
     opaque_counter_t* tmp = NULL;
@@ -97,6 +105,7 @@ opaque_counter_error_t opaque_counter_create(opaque_counter_t** counter_, const 
     tmp->initial = config_->initial;
     tmp->max = config_->max;
     tmp->min = config_->min;
+    tmp->counter = config_->initial;
     *counter_ = tmp;
     ret = OPAQUE_COUNTER_SUCCESS;
 
@@ -146,6 +155,115 @@ bool opaque_counter_config_valid_check(const opaque_counter_config_t* const conf
     } else {
         ret = true;
     }
+    return ret;
+}
+
+opaque_counter_error_t opaque_counter_inc(opaque_counter_t* const counter_) {
+    opaque_counter_error_t ret = OPAQUE_COUNTER_INVALID_ARGUMENT;
+    if(NULL == counter_) {
+        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): opaque_counter_inc - Argument counter_ requires a valid pointer.\n");
+        ret = OPAQUE_COUNTER_INVALID_ARGUMENT;
+        goto cleanup;
+    }
+    int64_t tmp = counter_->counter + 1;
+    if(tmp > counter_->max) {
+        fprintf(stderr, "[ERROR](OVERFLOW): opaque_counter_inc - Opaque counter overflow.\n");
+        ret = OPAQUE_COUNTER_OVERFLOW;
+        goto cleanup;
+    }
+    opaque_counter_history_t history = { 0 };
+    history.op = OPAQUE_COUNTER_OP_INC;
+    history.value_before = counter_->counter;
+    history.value_after = (int32_t)tmp;
+    oc_ring_history_error_t ret_push = opaque_counter_ring_history_push(&counter_->ring_history, &history);
+    if(OPAQUE_COUNTER_RING_HISTORY_SUCCESS != ret_push) {
+        fprintf(stderr, "[ERROR](RUNTIME_ERROR): opaque_counter_inc - Failed to push history.\n");
+        ret = OPAQUE_COUNTER_RUNTIME_ERROR;
+        goto cleanup;
+    }
+    counter_->counter = (int32_t)tmp;
+    ret = OPAQUE_COUNTER_SUCCESS;
+cleanup:
+    return ret;
+}
+
+opaque_counter_error_t opaque_counter_dec(opaque_counter_t* const counter_) {
+    opaque_counter_error_t ret = OPAQUE_COUNTER_INVALID_ARGUMENT;
+    if(NULL == counter_) {
+        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): opaque_counter_dec - Argument counter_ requires a valid pointer.\n");
+        ret = OPAQUE_COUNTER_INVALID_ARGUMENT;
+        goto cleanup;
+    }
+    int64_t tmp = counter_->counter - 1;
+    if(tmp < counter_->min) {
+        fprintf(stderr, "[ERROR](UNDERFLOW): opaque_counter_dec - Opaque counter underflow.\n");
+        ret = OPAQUE_COUNTER_UNDERFLOW;
+        goto cleanup;
+    }
+    opaque_counter_history_t history = { 0 };
+    history.op = OPAQUE_COUNTER_OP_DEC;
+    history.value_before = counter_->counter;
+    history.value_after = (int32_t)tmp;
+    oc_ring_history_error_t ret_push = opaque_counter_ring_history_push(&counter_->ring_history, &history);
+    if(OPAQUE_COUNTER_RING_HISTORY_SUCCESS != ret_push) {
+        fprintf(stderr, "[ERROR](RUNTIME_ERROR): opaque_counter_dec - Failed to push history.\n");
+        ret = OPAQUE_COUNTER_RUNTIME_ERROR;
+        goto cleanup;
+    }
+    counter_->counter = (int32_t)tmp;
+    ret = OPAQUE_COUNTER_SUCCESS;
+cleanup:
+    return ret;
+}
+
+opaque_counter_error_t opaque_counter_add(opaque_counter_t* const counter_, int32_t delta_) {
+    opaque_counter_error_t ret = OPAQUE_COUNTER_INVALID_ARGUMENT;
+    if(NULL == counter_) {
+        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): opaque_counter_add - Argument counter_ requires a valid pointer.\n");
+        ret = OPAQUE_COUNTER_INVALID_ARGUMENT;
+        goto cleanup;
+    }
+    if(0 == delta_) {
+        ret = OPAQUE_COUNTER_SUCCESS;
+        goto cleanup;
+    }
+    int64_t tmp = counter_->counter + delta_;
+    if(tmp < counter_->min) {
+        fprintf(stderr, "[ERROR](UNDERFLOW): opaque_counter_add - Opaque counter underflow.\n");
+        ret = OPAQUE_COUNTER_UNDERFLOW;
+        goto cleanup;
+    }
+    if(tmp > counter_->max) {
+        fprintf(stderr, "[ERROR](OVERFLOW): opaque_counter_add - Opaque counter overflow.\n");
+        ret = OPAQUE_COUNTER_OVERFLOW;
+        goto cleanup;
+    }
+    opaque_counter_history_t history = { 0 };
+    history.op = OPAQUE_COUNTER_OP_ADD;
+    history.value_before = counter_->counter;
+    history.value_after = (int32_t)tmp;
+    oc_ring_history_error_t ret_push = opaque_counter_ring_history_push(&counter_->ring_history, &history);
+    if(OPAQUE_COUNTER_RING_HISTORY_SUCCESS != ret_push) {
+        fprintf(stderr, "[ERROR](RUNTIME_ERROR): opaque_counter_add - Failed to push history.\n");
+        ret = OPAQUE_COUNTER_RUNTIME_ERROR;
+        goto cleanup;
+    }
+    counter_->counter = tmp;
+    ret = OPAQUE_COUNTER_SUCCESS;
+cleanup:
+    return ret;
+}
+
+opaque_counter_error_t opaque_counter_get(const opaque_counter_t* const counter_, int32_t* out_value_) {
+    opaque_counter_error_t ret = OPAQUE_COUNTER_INVALID_ARGUMENT;
+    if(NULL == counter_ || NULL == out_value_) {
+        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): opaque_counter_get - Arguments counter_ and out_value_ require valid pointers.\n");
+        ret = OPAQUE_COUNTER_INVALID_ARGUMENT;
+        goto cleanup;
+    }
+    *out_value_ = counter_->counter;
+    ret = OPAQUE_COUNTER_SUCCESS;
+cleanup:
     return ret;
 }
 
@@ -398,6 +516,157 @@ static void test_opaque_counter_config_valid_check(void) {
         // 異常(config == NULL)
         bool ret = opaque_counter_config_valid_check(NULL);
         assert(!ret);
+    }
+}
+
+static void test_opaque_counter_inc(void) {
+    {
+        opaque_counter_error_t ret = opaque_counter_inc(NULL);
+        assert(OPAQUE_COUNTER_INVALID_ARGUMENT == ret);
+    }
+    {
+        opaque_counter_config_t config = { 0 };
+        config.initial = 8;
+        config.min = 5;
+        config.max = 10;
+        config.history_cap = 4;
+        config.label = "test";
+        opaque_counter_t* counter = NULL;
+        opaque_counter_error_t ret = opaque_counter_create(&counter, &config);
+        assert(OPAQUE_COUNTER_SUCCESS == ret);
+
+        ret = opaque_counter_inc(counter); // 8 -> 9
+        assert(OPAQUE_COUNTER_SUCCESS == ret);
+        opaque_counter_ring_history_print(&counter->ring_history);
+
+        ret = opaque_counter_inc(counter); // 9 -> 10
+        assert(OPAQUE_COUNTER_SUCCESS == ret);
+        opaque_counter_ring_history_print(&counter->ring_history);
+
+        ret = opaque_counter_inc(counter); // overflow
+        assert(OPAQUE_COUNTER_OVERFLOW == ret);
+        opaque_counter_ring_history_print(&counter->ring_history);
+
+        opaque_counter_destroy(&counter);
+    }
+}
+
+static void test_opaque_counter_dec(void) {
+    {
+        opaque_counter_error_t ret = opaque_counter_dec(NULL);
+        assert(OPAQUE_COUNTER_INVALID_ARGUMENT == ret);
+    }
+    {
+        opaque_counter_config_t config = { 0 };
+        config.initial = 8;
+        config.min = 5;
+        config.max = 10;
+        config.history_cap = 4;
+        config.label = "test";
+        opaque_counter_t* counter = NULL;
+        opaque_counter_error_t ret = opaque_counter_create(&counter, &config);
+        assert(OPAQUE_COUNTER_SUCCESS == ret);
+
+        ret = opaque_counter_dec(counter); // 8 -> 7
+        assert(OPAQUE_COUNTER_SUCCESS == ret);
+        opaque_counter_ring_history_print(&counter->ring_history);
+
+        ret = opaque_counter_dec(counter); // 7 -> 6
+        assert(OPAQUE_COUNTER_SUCCESS == ret);
+        opaque_counter_ring_history_print(&counter->ring_history);
+
+        ret = opaque_counter_dec(counter); // 6 -> 5
+        assert(OPAQUE_COUNTER_SUCCESS == ret);
+        opaque_counter_ring_history_print(&counter->ring_history);
+
+        ret = opaque_counter_dec(counter); // underflow
+        assert(OPAQUE_COUNTER_UNDERFLOW == ret);
+        opaque_counter_ring_history_print(&counter->ring_history);
+
+        opaque_counter_destroy(&counter);
+    }
+}
+
+static void test_opaque_counter_add(void) {
+    {
+        opaque_counter_error_t ret = opaque_counter_add(NULL, 10);
+        assert(OPAQUE_COUNTER_INVALID_ARGUMENT == ret);
+    }
+    {
+        opaque_counter_config_t config = { 0 };
+        config.initial = 8;
+        config.min = 5;
+        config.max = 10;
+        config.history_cap = 4;
+        config.label = "test";
+        opaque_counter_t* counter = NULL;
+        opaque_counter_error_t ret = opaque_counter_create(&counter, &config);
+        assert(OPAQUE_COUNTER_SUCCESS == ret);
+
+        ret = opaque_counter_add(counter, 0);
+        assert(OPAQUE_COUNTER_SUCCESS == ret);
+
+        ret = opaque_counter_add(counter, 1);   // 8 -> 9
+        opaque_counter_ring_history_print(&counter->ring_history);
+
+        ret = opaque_counter_add(counter, -1);   // 9 -> 8
+        opaque_counter_ring_history_print(&counter->ring_history);
+
+        ret = opaque_counter_add(counter, 2);   // 8 -> 10
+        opaque_counter_ring_history_print(&counter->ring_history);
+
+        ret = opaque_counter_add(counter, 1);   // overflow
+        opaque_counter_ring_history_print(&counter->ring_history);
+
+        ret = opaque_counter_add(counter, -5);   // 10 -> 5
+        opaque_counter_ring_history_print(&counter->ring_history);
+
+        ret = opaque_counter_add(counter, -1);   // underflow
+        opaque_counter_ring_history_print(&counter->ring_history);
+
+        opaque_counter_destroy(&counter);
+    }
+}
+
+static void test_opaque_counter_get(void) {
+    {
+        int32_t tmp = 0;
+        opaque_counter_error_t ret = opaque_counter_get(NULL, &tmp);
+        assert(OPAQUE_COUNTER_INVALID_ARGUMENT == ret);
+    }
+    {
+        opaque_counter_config_t config = { 0 };
+        config.initial = 1;
+        config.min = 0;
+        config.max = 2;
+        config.history_cap = 4;
+        config.label = "test";
+        opaque_counter_t* counter = NULL;
+        opaque_counter_error_t ret = opaque_counter_create(&counter, &config);
+        assert(OPAQUE_COUNTER_SUCCESS == ret);
+
+        ret = opaque_counter_get(counter, NULL);
+        assert(OPAQUE_COUNTER_INVALID_ARGUMENT == ret);
+
+        opaque_counter_destroy(&counter);
+    }
+    {
+        opaque_counter_config_t config = { 0 };
+        config.initial = 1;
+        config.min = 0;
+        config.max = 2;
+        config.history_cap = 4;
+        config.label = "test";
+        opaque_counter_t* counter = NULL;
+        opaque_counter_error_t ret = opaque_counter_create(&counter, &config);
+        assert(OPAQUE_COUNTER_SUCCESS == ret);
+
+        int32_t tmp = 0;
+        ret = opaque_counter_get(counter, &tmp);
+        assert(OPAQUE_COUNTER_SUCCESS == ret);
+        assert(tmp == counter->counter);
+
+        opaque_counter_destroy(&counter);
     }
 }
 #endif
