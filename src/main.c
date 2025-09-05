@@ -21,6 +21,7 @@ int main(int argc_, char** argv_) {
 #endif
 
 #ifdef TEST_BUILD
+    test_opaque_counter_ring_history();
     test_opaque_counter();
 #endif
 

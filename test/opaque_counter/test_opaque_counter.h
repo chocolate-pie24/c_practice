@@ -3,6 +3,7 @@
 
 #ifdef TEST_BUILD
 void test_opaque_counter(void);
+void test_opaque_counter_ring_history(void);
 #endif
 
 #endif

@@ -4,21 +4,31 @@
 #include <stdbool.h>
 #include <string.h> // for memset_
 
-#ifdef TEST_BUILD
-#include <assert.h>
-#endif
-
 #include "opaque_counter/opaque_counter.h"
 
 #include "internal/opaque_counter_history.h"
 #include "internal/opaque_counter_ring_history.h"
 
 #ifdef TEST_BUILD
+#include <assert.h>
+
 typedef struct test_param {
     uint16_t malloc_counter;    // malloc実行回数
     uint16_t malloc_fail_n;     // n回目のmallocで失敗
     bool fail_enable;
 } test_param_t;
+
+static void test_opaque_counter_create(void);
+static void test_opaque_counter_destroy(void);
+static void test_opaque_counter_config_valid_check(void);
+
+static test_param_t s_test_param;
+
+void test_opaque_counter(void) {
+    test_opaque_counter_create();
+    test_opaque_counter_destroy();
+    test_opaque_counter_config_valid_check();
+}
 #endif
 
 struct opaque_counter {
@@ -37,52 +47,7 @@ struct opaque_counter {
 static void* oc_malloc(size_t size_);
 static char* oc_strdup(const char* const str_);
 
-static void test_opaque_counter_create(void);
-static void test_opaque_counter_destroy(void);
-static void test_opaque_counter_config_valid_check(void);
-
-#ifdef TEST_BUILD
-static test_param_t s_test_param;
-#endif
-
-#ifdef TEST_BUILD
-void test_opaque_counter(void) {
-    test_opaque_counter_create();
-    test_opaque_counter_destroy();
-    test_opaque_counter_config_valid_check();
-
-    // TODO: remove this.
-    {
-        fprintf(stdout, "====================\n");
-        opaque_counter_ring_history_t history = { 0 };
-        oc_ring_history_error_t history_error = opaque_counter_ring_history_create(&history, 4);
-        for(size_t i = 0; i != 3; ++i) {
-            opaque_counter_history_t tmp;
-            tmp.op = OPAQUE_COUNTER_OP_INC;
-            tmp.value_before = i;
-            tmp.value_after = i + 1;
-            opaque_counter_ring_history_push(&history, &tmp);
-        }
-        opaque_counter_ring_history_print(&history);
-    }
-    {
-        fprintf(stdout, "====================\n");
-        opaque_counter_ring_history_t history = { 0 };
-        oc_ring_history_error_t history_error = opaque_counter_ring_history_create(&history, 4);
-        for(size_t i = 0; i != 16; ++i) {
-            opaque_counter_history_t tmp;
-            tmp.op = OPAQUE_COUNTER_OP_INC;
-            tmp.value_before = i;
-            tmp.value_after = i + 1;
-            opaque_counter_ring_history_push(&history, &tmp);
-            fprintf(stdout, "====================\n");
-            opaque_counter_ring_history_print(&history);
-        }
-    }
-    // TODO: remove this.
-}
-#endif
-
+// TODO: TEST_BUILDでカバレッジ計測
 opaque_counter_error_t opaque_counter_create(opaque_counter_t** counter_, const opaque_counter_config_t* const config_) {
     opaque_counter_error_t ret = OPAQUE_COUNTER_INVALID_ARGUMENT;
     opaque_counter_t* tmp = NULL;
