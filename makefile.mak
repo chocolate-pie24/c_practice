@@ -38,6 +38,8 @@ else
 	endif
 	ifeq ($(BUILD_MODE), TEST_BUILD)
 		COMPILER_FLAGS += -g -O0 -DTEST_BUILD -DPLATFORM_MACOS
+		COMPILER_FLAGS += -fprofile-instr-generate -fcoverage-mapping
+		LINKER_FLAGS += -fprofile-instr-generate -fcoverage-mapping
 	endif
 endif
 
