@@ -33,7 +33,14 @@ COMPILER_FLAGS += -Wno-declaration-after-statement
 ifeq ($(BUILD_MODE), RELEASE_BUILD)
 	COMPILER_FLAGS += -O3 -DRELEASE_BUILD -DPLATFORM_MACOS
 else
-	COMPILER_FLAGS += -g -O0 -DDEBUG_BUILD -DPLATFORM_MACOS
+	ifeq ($(BUILD_MODE), DEBUG_BUILD)
+		COMPILER_FLAGS += -g -O0 -DDEBUG_BUILD -DPLATFORM_MACOS
+	endif
+	ifeq ($(BUILD_MODE), TEST_BUILD)
+		COMPILER_FLAGS += -g -O0 -DTEST_BUILD -DPLATFORM_MACOS
+		COMPILER_FLAGS += -fprofile-instr-generate -fcoverage-mapping
+		LINKER_FLAGS += -fprofile-instr-generate -fcoverage-mapping
+	endif
 endif
 
 .PHONY: all
@@ -68,3 +75,4 @@ clean:
 	@rm -f $(TARGET)
 	@rm -rf $(BUILD_DIR)
 	@rm -rf $(OBJ_DIR)
+	@rm -rf cov
