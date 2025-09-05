@@ -40,6 +40,4 @@ opaque_counter_error_t opaque_counter_add(opaque_counter_t* const counter_, int3
 
 opaque_counter_error_t opaque_counter_get(const opaque_counter_t* const counter_, int32_t* out_value_);
 
-opaque_counter_error_t opaque_counter_range_get(const opaque_counter_t* const counter_, int32_t* out_min_, int32_t* out_max_);
-
 #endif

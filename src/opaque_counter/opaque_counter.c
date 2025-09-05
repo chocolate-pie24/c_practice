@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h> // for memset_
 
 #include "opaque_counter/opaque_counter.h"
@@ -44,7 +45,6 @@ struct opaque_counter {
     // const char*の場合は静的領域にメモリが確保されている場合があるため、その際にfreeすると未定義動作となる。
     // configオブジェクトを持たせても良いが、config.labelをconst char*にするのを優先するためこうした
     // また、const char*が現状なくても、将来的に追加される可能性を見越してconfigをそのまま持たせない方が良い
-    size_t history_cap;
     int32_t min;
     int32_t initial;
     int32_t max;
@@ -75,7 +75,7 @@ opaque_counter_error_t opaque_counter_create(opaque_counter_t** counter_, const 
         goto cleanup;
     }
     if(!opaque_counter_config_valid_check(config_)) {
-        fprintf(stderr, "[ERORR](INVALID_ARGUMENT): opaque_counter_create - Provided config_ is not valid.\n");
+        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): opaque_counter_create - Provided config_ is not valid.\n");
         ret = OPAQUE_COUNTER_INVALID_ARGUMENT;
         goto cleanup;
     }
@@ -89,9 +89,13 @@ opaque_counter_error_t opaque_counter_create(opaque_counter_t** counter_, const 
 
     tmp->ring_history.histories = NULL;
     oc_ring_history_error_t ring_history_result = opaque_counter_ring_history_create(&tmp->ring_history, config_->history_cap);
-    if(OPAQUE_COUNTER_RING_HISTORY_SUCCESS != ring_history_result) {
-        fprintf(stderr, "[ERROR](RUNTIME_ERROR): opaque_counter_create - Failed to create history ring buffer.\n");
-        ret = OPAQUE_COUNTER_RUNTIME_ERROR;
+    if(OPAQUE_COUNTER_RING_HISTORY_INVALID_ARGUMENT == ring_history_result) {
+        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): opaque_counter_create - Failed to create history ring buffer.\n");
+        ret = OPAQUE_COUNTER_INVALID_ARGUMENT;
+        goto cleanup;
+    } else if(OPAQUE_COUNTER_RING_HISTORY_NO_MEMORY == ring_history_result) {
+        fprintf(stderr, "[ERROR](NO_MEMORY): opaque_counter_create - Failed to create history ring buffer.\n");
+        ret = OPAQUE_COUNTER_NO_MEMORY;
         goto cleanup;
     }
 
@@ -133,6 +137,7 @@ void opaque_counter_destroy(opaque_counter_t** counter_) {
         free(tmp->label);
         tmp->label = NULL;
     }
+    opaque_counter_ring_history_destroy(&tmp->ring_history);
     free(tmp);
     tmp = NULL;
     *counter_ = NULL;
@@ -165,7 +170,7 @@ opaque_counter_error_t opaque_counter_inc(opaque_counter_t* const counter_) {
         ret = OPAQUE_COUNTER_INVALID_ARGUMENT;
         goto cleanup;
     }
-    int64_t tmp = counter_->counter + 1;
+    int64_t tmp = (int64_t)counter_->counter + (int64_t)1;
     if(tmp > counter_->max) {
         fprintf(stderr, "[ERROR](OVERFLOW): opaque_counter_inc - Opaque counter overflow.\n");
         ret = OPAQUE_COUNTER_OVERFLOW;
@@ -194,7 +199,7 @@ opaque_counter_error_t opaque_counter_dec(opaque_counter_t* const counter_) {
         ret = OPAQUE_COUNTER_INVALID_ARGUMENT;
         goto cleanup;
     }
-    int64_t tmp = counter_->counter - 1;
+    int64_t tmp = (int64_t)counter_->counter - (int64_t)1;
     if(tmp < counter_->min) {
         fprintf(stderr, "[ERROR](UNDERFLOW): opaque_counter_dec - Opaque counter underflow.\n");
         ret = OPAQUE_COUNTER_UNDERFLOW;
@@ -227,7 +232,7 @@ opaque_counter_error_t opaque_counter_add(opaque_counter_t* const counter_, int3
         ret = OPAQUE_COUNTER_SUCCESS;
         goto cleanup;
     }
-    int64_t tmp = counter_->counter + delta_;
+    int64_t tmp = (int64_t)counter_->counter + (int64_t)delta_;
     if(tmp < counter_->min) {
         fprintf(stderr, "[ERROR](UNDERFLOW): opaque_counter_add - Opaque counter underflow.\n");
         ret = OPAQUE_COUNTER_UNDERFLOW;
@@ -248,7 +253,7 @@ opaque_counter_error_t opaque_counter_add(opaque_counter_t* const counter_, int3
         ret = OPAQUE_COUNTER_RUNTIME_ERROR;
         goto cleanup;
     }
-    counter_->counter = tmp;
+    counter_->counter = (int32_t)tmp;
     ret = OPAQUE_COUNTER_SUCCESS;
 cleanup:
     return ret;
@@ -469,7 +474,7 @@ static void test_opaque_counter_config_valid_check(void) {
         assert(ret);
     }
     {
-        // 異常(histroy_cap = 0)
+        // 異常(history_cap = 0)
         opaque_counter_config_t config = { 0 };
         config.history_cap = 0;
         config.initial = 15;

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h> // for strcpy, memset
 
 #include "internal/opaque_counter_ring_history.h"
@@ -50,9 +51,14 @@ oc_ring_history_error_t opaque_counter_ring_history_create(opaque_counter_ring_h
         ret = OPAQUE_COUNTER_RING_HISTORY_INVALID_ARGUMENT;
         goto cleanup;
     }
+    if((SIZE_MAX / capacity_) < sizeof(opaque_counter_history_t)) {
+        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): opaque_counter_ring_history_create - Provided capacity_ is too big.\n");
+        ret = OPAQUE_COUNTER_RING_HISTORY_INVALID_ARGUMENT;
+        goto cleanup;
+    }
     tmp = oc_malloc(sizeof(opaque_counter_history_t) * capacity_);
     if(NULL == tmp) {
-        fprintf(stderr, "[ERROR](NO_MEMORY): opaque_counter_ring_history_create - Failed to allocate hisotry buffer memory.\n");
+        fprintf(stderr, "[ERROR](NO_MEMORY): opaque_counter_ring_history_create - Failed to allocate history buffer memory.\n");
         ret = OPAQUE_COUNTER_RING_HISTORY_NO_MEMORY;
         goto cleanup;
     }
@@ -91,7 +97,12 @@ cleanup:
 oc_ring_history_error_t opaque_counter_ring_history_push(opaque_counter_ring_history_t* ring_history_, const opaque_counter_history_t* const history_) {
     oc_ring_history_error_t ret = OPAQUE_COUNTER_RING_HISTORY_INVALID_ARGUMENT;
     if(NULL == ring_history_ || NULL == history_) {
-        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): opaque_counter_ring_history_push - Arguments history_ and history_ require valid pointers.\n");
+        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): opaque_counter_ring_history_push - Arguments ring_history_ and history_ require valid pointers.\n");
+        ret = OPAQUE_COUNTER_RING_HISTORY_INVALID_ARGUMENT;
+        goto cleanup;
+    }
+    if(NULL == ring_history_->histories || 0 == ring_history_->capacity) {
+        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): opaque_counter_ring_history_push - Provided ring_history_ is not initialized.\n");
         ret = OPAQUE_COUNTER_RING_HISTORY_INVALID_ARGUMENT;
         goto cleanup;
     }
@@ -190,6 +201,13 @@ static void test_opaque_counter_ring_history_create(void) {
         assert(0 == history.len);
         assert(0 == history.tail);
         assert(NULL == history.histories);
+    }
+    {
+        s_test_param.fail_enable = false;
+        opaque_counter_ring_history_t history = { 0 };
+        // sizeof(opaque_counter_ring_history_t) * capacityで失敗
+        oc_ring_history_error_t ret = opaque_counter_ring_history_create(&history, SIZE_MAX);
+        assert(OPAQUE_COUNTER_RING_HISTORY_INVALID_ARGUMENT == ret);
     }
     {
         s_test_param.fail_enable = false;

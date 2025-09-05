@@ -75,3 +75,4 @@ clean:
 	@rm -f $(TARGET)
 	@rm -rf $(BUILD_DIR)
 	@rm -rf $(OBJ_DIR)
+	@rm -rf cov

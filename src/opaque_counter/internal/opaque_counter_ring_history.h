@@ -12,7 +12,7 @@ typedef enum {
     OPAQUE_COUNTER_RING_HISTORY_NO_MEMORY,
 } oc_ring_history_error_t;
 
-typedef struct opaque_counter_ring_histroy {
+typedef struct opaque_counter_ring_history {
     opaque_counter_history_t* histories;
     size_t head;
     size_t tail;
@@ -24,7 +24,7 @@ oc_ring_history_error_t opaque_counter_ring_history_create(opaque_counter_ring_h
 
 void opaque_counter_ring_history_destroy(opaque_counter_ring_history_t* history_);
 
-oc_ring_history_error_t opaque_counter_ring_history_push(opaque_counter_ring_history_t* ring_history_, const opaque_counter_history_t* const hitory_);
+oc_ring_history_error_t opaque_counter_ring_history_push(opaque_counter_ring_history_t* ring_history_, const opaque_counter_history_t* const history_);
 
 void opaque_counter_ring_history_print(const opaque_counter_ring_history_t* const history_);
 
