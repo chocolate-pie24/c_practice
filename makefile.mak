@@ -9,6 +9,7 @@ DIRECTORIES = $(shell find $(SRC_DIR) -type d)
 OBJ_FILES = $(SRC_FILES:%=$(OBJ_DIR)/%.o)
 
 INCLUDE_FLAGS = -Iinclude
+INCLUDE_FLAGS += -Itest/include
 CC = /opt/homebrew/opt/llvm/bin/clang
 
 COMPILER_FLAGS = -Wall -Wextra -std=c11

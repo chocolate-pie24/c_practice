@@ -6,6 +6,12 @@
 #include "internal/oc_hist.h"
 #include "internal/oc_ring_hist.h"
 
+#ifdef __clang__
+  #define NO_COVERAGE __attribute__((no_profile_instrument_function))
+#else
+  #define NO_COVERAGE
+#endif
+
 /*
 TODO: 2025/09/06...09/07
 - [x] oc_malloc
@@ -17,16 +23,14 @@ TODO: 2025/09/06...09/07
 - [x] test_oc_ring_hist_createにoc_ring_hist_destroyを追加
 - [x] #ifdef TEST_BUILD
 - [x] testディレクトリ,テスト実行
-- [] カバレッジ計測スクリプト
-  - [] カバレッジ100%
-  - [] スクリプト
-  - [] カバレッジGitHub表示方法
 */
 
 /*
 TODO:
 - [] oc_ring_hist_test_param_set
 - [] test_oc_ring_hist_test_param_set
+- [] TEST_BUILDではなく、TEST_ENABLEにしてRELEASEとDEBUGでもテストできるようにする
+- [] docsにカバレッジ関連マニュアルを置く
 */
 
 #ifdef TEST_BUILD
@@ -126,52 +130,51 @@ static void* oc_malloc(size_t size_) {
 }
 
 #ifdef TEST_BUILD
-static void test_oc_malloc(void) {
+static NO_COVERAGE void test_oc_malloc(void) {
+    int* tmp = NULL;
+
+    // テストケース1: テスト無効でmalloc成功
     s_test_param.fail_enable = false;
     s_test_param.oc_malloc_counter = 0;
     s_test_param.oc_malloc_fail_n = 0;
-    { (void)0;
-        s_test_param.fail_enable = false;
-        s_test_param.oc_malloc_counter = 0;
-        s_test_param.oc_malloc_fail_n = 0;
-        int* tmp = NULL;
-        tmp = oc_malloc(sizeof(*tmp));
-        assert(NULL != tmp);
-        free(tmp);
-        tmp = NULL;
-    }
-    { (void)0;
-        s_test_param.fail_enable = true;
-        s_test_param.oc_malloc_counter = 0;
-        s_test_param.oc_malloc_fail_n = 1;
-        int* tmp = NULL;
-        tmp = oc_malloc(sizeof(*tmp));
-        assert(NULL != tmp);
-        free(tmp);
-        tmp = NULL;
-    }
-    { (void)0;
-        s_test_param.fail_enable = true;
-        s_test_param.oc_malloc_counter = 0;
-        s_test_param.oc_malloc_fail_n = 1;
+    tmp = NULL;
+    tmp = oc_malloc(sizeof(*tmp));
+    assert(NULL != tmp);
+    free(tmp);
+    tmp = NULL;
 
-        // 1回目はmalloc成功
-        int* tmp = NULL;
-        tmp = oc_malloc(sizeof(*tmp));
-        assert(NULL != tmp);
-        free(tmp);
-        tmp = NULL;
+    // テストケース2: テスト有効、かつ、失敗するmalloc実行回数未達でmalloc成功
+    s_test_param.fail_enable = true;
+    s_test_param.oc_malloc_counter = 0;
+    s_test_param.oc_malloc_fail_n = 1;
+    tmp = NULL;
+    tmp = oc_malloc(sizeof(*tmp));
+    assert(NULL != tmp);
+    free(tmp);
+    tmp = NULL;
 
-        // 2回目で失敗
-        tmp = oc_malloc(sizeof(*tmp));
-        assert(NULL == tmp);
-    }
+    // テストケース3: テスト有効かつ、指定したmalloc実行回数でmalloc失敗
+    s_test_param.fail_enable = true;
+    s_test_param.oc_malloc_counter = 0;
+    s_test_param.oc_malloc_fail_n = 1;
+
+    // 1回目はmalloc成功
+    tmp = NULL;
+    tmp = oc_malloc(sizeof(*tmp));
+    assert(NULL != tmp);
+    free(tmp);
+    tmp = NULL;
+
+    // 2回目で失敗
+    tmp = oc_malloc(sizeof(*tmp));
+    assert(NULL == tmp);
+
     s_test_param.fail_enable = false;
     s_test_param.oc_malloc_counter = 0;
     s_test_param.oc_malloc_fail_n = 0;
 }
 
-// static void test_oc_ring_hist_create(void) {
+// static NO_COVERAGE void test_oc_ring_hist_create(void) {
 //     s_test_param.fail_enable = false;
 //     s_test_param.oc_malloc_counter = 0;
 //     s_test_param.oc_malloc_fail_n = 0;
