@@ -14,11 +14,9 @@
 
 /*
 TODO:
-- [] oc_ring_hist_pushテスト
+- [x] oc_ring_hist_pushテスト
 - [] oc_ring_hist_test_param_set
 - [] test_oc_ring_hist_test_param_set
-- [] TEST_BUILDではなく、TEST_ENABLEにしてRELEASEとDEBUGでもテストできるようにする
-- [] docsにカバレッジ関連マニュアルを置く
 */
 
 #ifdef TEST_BUILD
@@ -141,8 +139,7 @@ static void* oc_malloc(size_t size_) {
         ret = NULL;
     }
     s_test_param.oc_malloc_counter++;
-#endif
-#ifndef TEST_BUILD
+#else
     ret = malloc(size_);
 #endif
     return ret;
