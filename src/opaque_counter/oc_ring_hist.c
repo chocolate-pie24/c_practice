@@ -14,6 +14,7 @@
 
 /*
 TODO:
+- [] oc_ring_hist_pushテスト
 - [] oc_ring_hist_test_param_set
 - [] test_oc_ring_hist_test_param_set
 - [] TEST_BUILDではなく、TEST_ENABLEにしてRELEASEとDEBUGでもテストできるようにする
@@ -26,11 +27,13 @@ static oc_ring_hist_malloc_test_t s_test_param;
 static void test_oc_malloc(void);
 static void test_oc_ring_hist_create(void);
 static void test_oc_ring_hist_destroy(void);
+static void test_oc_ring_hist_push(void);
 
 void test_oc_ring_hist(void) {
     test_oc_malloc();
     test_oc_ring_hist_destroy();
     test_oc_ring_hist_create();
+    test_oc_ring_hist_push();
 }
 #endif
 
@@ -58,7 +61,7 @@ oc_ring_hist_err_t oc_ring_hist_create(oc_ring_hist_t* const ring_history_, size
         ret = OC_RING_HIST_INVALID_ARGUMENT;
         goto cleanup;
     }
-    tmp = oc_malloc(sizeof(*tmp));
+    tmp = (oc_hist_t*)oc_malloc(sizeof(*tmp));
     if(NULL == tmp) {
         fprintf(stderr, "[ERROR](NO_MEMORY): oc_ring_hist_create - Failed to allocate oc_hist_t memory.\n");
         ret = OC_RING_HIST_NO_MEMORY;
@@ -100,6 +103,33 @@ cleanup:
     return;
 }
 
+oc_ring_hist_err_t oc_ring_hist_push(oc_ring_hist_t* const ring_history_, const oc_hist_t* const history_) {
+    oc_ring_hist_err_t ret = OC_RING_HIST_INVALID_ARGUMENT;
+    if(NULL == ring_history_) {
+        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): oc_ring_hist_push - Argument ring_history_ requires a valid pointer.\n");
+        ret = OC_RING_HIST_INVALID_ARGUMENT;
+        goto cleanup;
+    }
+    if(NULL == history_) {
+        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): oc_ring_hist_push - Argument history_ requires a valid pointer.\n");
+        ret = OC_RING_HIST_INVALID_ARGUMENT;
+        goto cleanup;
+    }
+    ring_history_->histories[ring_history_->tail].opp = history_->opp;
+    ring_history_->histories[ring_history_->tail].before_value = history_->before_value;
+    ring_history_->histories[ring_history_->tail].after_value = history_->after_value;
+    ring_history_->tail = (ring_history_->tail + 1) % ring_history_->capacity;
+    if(ring_history_->len != ring_history_->capacity) {
+        ring_history_->len++;
+    }
+    if(ring_history_->len == ring_history_->capacity) {
+        ring_history_->head = (ring_history_->head + 1) % ring_history_->capacity;
+    }
+    ret = OC_RING_HIST_SUCCESS;
+cleanup:
+    return ret;
+}
+
 static void* oc_malloc(size_t size_) {
     void* ret = NULL;
 #ifdef TEST_BUILD
@@ -127,7 +157,7 @@ static NO_COVERAGE void test_oc_malloc(void) {
     s_test_param.oc_malloc_counter = 0;
     s_test_param.oc_malloc_fail_n = 0;
     tmp = NULL;
-    tmp = oc_malloc(sizeof(*tmp));
+    tmp = (int*)oc_malloc(sizeof(*tmp));
     assert(NULL != tmp);
     free(tmp);
     tmp = NULL;
@@ -137,7 +167,7 @@ static NO_COVERAGE void test_oc_malloc(void) {
     s_test_param.oc_malloc_counter = 0;
     s_test_param.oc_malloc_fail_n = 1;
     tmp = NULL;
-    tmp = oc_malloc(sizeof(*tmp));
+    tmp = (int*)oc_malloc(sizeof(*tmp));
     assert(NULL != tmp);
     free(tmp);
     tmp = NULL;
@@ -149,13 +179,13 @@ static NO_COVERAGE void test_oc_malloc(void) {
 
     // 1回目はmalloc成功
     tmp = NULL;
-    tmp = oc_malloc(sizeof(*tmp));
+    tmp = (int*)oc_malloc(sizeof(*tmp));
     assert(NULL != tmp);
     free(tmp);
     tmp = NULL;
 
     // 2回目で失敗
-    tmp = oc_malloc(sizeof(*tmp));
+    tmp = (int*)oc_malloc(sizeof(*tmp));
     assert(NULL == tmp);
 
     s_test_param.fail_enable = false;
@@ -243,5 +273,111 @@ static NO_COVERAGE void test_oc_ring_hist_destroy(void) {
         assert(0 == ring_history.len);
         assert(0 == ring_history.tail);
     }
+}
+
+static NO_COVERAGE void test_oc_ring_hist_push(void) {
+    oc_ring_hist_err_t ret = OC_RING_HIST_INVALID_ARGUMENT;
+    oc_ring_hist_t ring_history = { 0 };
+    ret = oc_ring_hist_create(&ring_history, 3);
+    assert(OC_RING_HIST_SUCCESS == ret);
+
+    oc_ring_hist_err_t push_ret = OC_RING_HIST_INVALID_ARGUMENT;
+    oc_hist_t hist = { 0 };
+
+    push_ret = oc_ring_hist_push(NULL, &hist);
+    assert(OC_RING_HIST_INVALID_ARGUMENT == push_ret);
+
+    push_ret = oc_ring_hist_push(&ring_history, NULL);
+    assert(OC_RING_HIST_INVALID_ARGUMENT == push_ret);
+
+    hist.opp = OC_OP_ADD;
+    hist.before_value = 1;
+    hist.after_value = 2;
+    push_ret = oc_ring_hist_push(&ring_history, &hist);
+    assert(OC_RING_HIST_SUCCESS == push_ret);
+    assert(ring_history.head == 0);
+    assert(ring_history.len == 1);
+    assert(ring_history.tail == 1);
+    assert(ring_history.histories[0].opp == OC_OP_ADD);
+    assert(ring_history.histories[0].before_value == 1);
+    assert(ring_history.histories[0].after_value == 2);
+    assert(ring_history.histories[1].opp == 0);
+    assert(ring_history.histories[1].before_value == 0);
+    assert(ring_history.histories[1].after_value == 0);
+    assert(ring_history.histories[2].opp == 0);
+    assert(ring_history.histories[2].before_value == 0);
+    assert(ring_history.histories[2].after_value == 0);
+
+    hist.opp = OC_OP_INC;
+    hist.before_value = 3;
+    hist.after_value = 4;
+    push_ret = oc_ring_hist_push(&ring_history, &hist);
+    assert(OC_RING_HIST_SUCCESS == push_ret);
+    assert(ring_history.head == 0);
+    assert(ring_history.len == 2);
+    assert(ring_history.tail == 2);
+    assert(ring_history.histories[0].opp == OC_OP_ADD);
+    assert(ring_history.histories[0].before_value == 1);
+    assert(ring_history.histories[0].after_value == 2);
+    assert(ring_history.histories[1].opp == OC_OP_INC);
+    assert(ring_history.histories[1].before_value == 3);
+    assert(ring_history.histories[1].after_value == 4);
+    assert(ring_history.histories[2].opp == 0);
+    assert(ring_history.histories[2].before_value == 0);
+    assert(ring_history.histories[2].after_value == 0);
+
+    hist.opp = OC_OP_DEC;
+    hist.before_value = 5;
+    hist.after_value = 6;
+    push_ret = oc_ring_hist_push(&ring_history, &hist);
+    assert(OC_RING_HIST_SUCCESS == push_ret);
+    assert(ring_history.head == 1);
+    assert(ring_history.len == 3);
+    assert(ring_history.tail == 0);
+    assert(ring_history.histories[0].opp == OC_OP_ADD);
+    assert(ring_history.histories[0].before_value == 1);
+    assert(ring_history.histories[0].after_value == 2);
+    assert(ring_history.histories[1].opp == OC_OP_INC);
+    assert(ring_history.histories[1].before_value == 3);
+    assert(ring_history.histories[1].after_value == 4);
+    assert(ring_history.histories[2].opp == OC_OP_DEC);
+    assert(ring_history.histories[2].before_value == 5);
+    assert(ring_history.histories[2].after_value == 6);
+
+    hist.opp = OC_OP_ADD;
+    hist.before_value = 7;
+    hist.after_value = 8;
+    push_ret = oc_ring_hist_push(&ring_history, &hist);
+    assert(OC_RING_HIST_SUCCESS == push_ret);
+    assert(ring_history.head == 2);
+    assert(ring_history.len == 3);
+    assert(ring_history.tail == 1);
+    assert(ring_history.histories[0].opp == OC_OP_ADD);
+    assert(ring_history.histories[0].before_value == 7);
+    assert(ring_history.histories[0].after_value == 8);
+    assert(ring_history.histories[1].opp == OC_OP_INC);
+    assert(ring_history.histories[1].before_value == 3);
+    assert(ring_history.histories[1].after_value == 4);
+    assert(ring_history.histories[2].opp == OC_OP_DEC);
+    assert(ring_history.histories[2].before_value == 5);
+    assert(ring_history.histories[2].after_value == 6);
+
+    hist.opp = OC_OP_INC;
+    hist.before_value = 9;
+    hist.after_value = 10;
+    push_ret = oc_ring_hist_push(&ring_history, &hist);
+    assert(OC_RING_HIST_SUCCESS == push_ret);
+    assert(ring_history.head == 0);
+    assert(ring_history.len == 3);
+    assert(ring_history.tail == 2);
+    assert(ring_history.histories[0].opp == OC_OP_ADD);
+    assert(ring_history.histories[0].before_value == 7);
+    assert(ring_history.histories[0].after_value == 8);
+    assert(ring_history.histories[1].opp == OC_OP_INC);
+    assert(ring_history.histories[1].before_value == 9);
+    assert(ring_history.histories[1].after_value == 10);
+    assert(ring_history.histories[2].opp == OC_OP_DEC);
+    assert(ring_history.histories[2].before_value == 5);
+    assert(ring_history.histories[2].after_value == 6);
 }
 #endif
