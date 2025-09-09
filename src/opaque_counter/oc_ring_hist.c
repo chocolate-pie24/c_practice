@@ -59,13 +59,18 @@ oc_ring_hist_err_t oc_ring_hist_create(oc_ring_hist_t* const ring_history_, size
         ret = OC_RING_HIST_INVALID_ARGUMENT;
         goto cleanup;
     }
-    tmp = (oc_hist_t*)oc_malloc(sizeof(*tmp));
+    if(capacity_ > SIZE_MAX / sizeof(oc_hist_t)) {
+        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): oc_ring_hist_create - Provided capacity_ is too big.\n");
+        ret = OC_RING_HIST_NO_MEMORY;
+        goto cleanup;
+    }
+    tmp = (oc_hist_t*)oc_malloc(sizeof(oc_hist_t) * capacity_);
     if(NULL == tmp) {
         fprintf(stderr, "[ERROR](NO_MEMORY): oc_ring_hist_create - Failed to allocate oc_hist_t memory.\n");
         ret = OC_RING_HIST_NO_MEMORY;
         goto cleanup;
     }
-    memset(tmp, 0, sizeof(*tmp));
+    memset(tmp, 0, sizeof(oc_hist_t) * capacity_);
     ring_history_->capacity = capacity_;
     ring_history_->head = 0;
     ring_history_->tail = 0;
@@ -214,6 +219,13 @@ static NO_COVERAGE void test_oc_ring_hist_create(void) {
 
         ret = oc_ring_hist_create(&ring_history, 128);  // ring_history_->histories != NULLでOC_RING_HIST_INVALID_ARGUMENT
         assert(OC_RING_HIST_INVALID_ARGUMENT == ret);
+        oc_ring_hist_destroy(&ring_history);
+    }
+    {
+        oc_ring_hist_err_t ret = OC_RING_HIST_INVALID_ARGUMENT;
+        oc_ring_hist_t ring_history = { 0 };
+        ret = oc_ring_hist_create(&ring_history, SIZE_MAX);
+        assert(OC_RING_HIST_NO_MEMORY == ret);
         oc_ring_hist_destroy(&ring_history);
     }
     {
