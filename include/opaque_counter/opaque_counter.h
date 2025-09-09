@@ -17,12 +17,12 @@ typedef enum {
 
 oc_error_t opaque_counter_create(opaque_counter_t** counter_, const oc_config_t* const config_);
 
-void opaque_counter_destroy(opaque_counter_t* counter_);
-
-oc_error_t opaque_counter_add(opaque_counter_t* const counter_, int32_t delta_);
+void opaque_counter_destroy(opaque_counter_t** counter_);
 
 oc_error_t opaque_counter_inc(opaque_counter_t* const counter_);
 
 oc_error_t opaque_counter_dec(opaque_counter_t* const counter_);
+
+oc_error_t opaque_counter_add(opaque_counter_t* const counter_, int32_t delta_);
 
 #endif
