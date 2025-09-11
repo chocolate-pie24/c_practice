@@ -36,6 +36,15 @@
                 "cwd": "${workspaceFolder}"
             },
             "group": "build"
+        },
+        {
+            "type": "shell",
+            "label": "coverage",
+            "command": "${workspaceFolder}/cov.sh",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build"
         }
     ]
 }
