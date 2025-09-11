@@ -61,10 +61,6 @@ $(OBJ_DIR)/%.c.o: %.c
 	@echo compiling $<...
 	$(CC) $< $(COMPILER_FLAGS) -c -o $@ $(INCLUDE_FLAGS)
 
-$(OBJ_DIR)/%.o: %.c
-	@mkdir -p $(dir $@)
-	$(CC) $(COMPILER_FLAGS) $(INCLUDE_FLAGS) -c $< -o $@
-
 .PHONY: link
 link: scaffold $(OBJ_FILES)
 	@echo --- linking $(TARGET)... ---
