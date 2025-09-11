@@ -4,6 +4,8 @@
 #include <string.h> // for memset
 #include <limits.h> // for SIZE_MAX
 
+#include "opaque_counter/opaque_counter.h"
+
 #include "opaque_counter/oc_hist.h"
 #include "opaque_counter/oc_ring_hist.h"
 

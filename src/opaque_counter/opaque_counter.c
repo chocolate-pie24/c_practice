@@ -250,6 +250,89 @@ cleanup:
     return ret;
 }
 
+oc_error_t opaque_counter_apply_many(opaque_counter_t* const counter_, const oc_op_t* const operations_, size_t num_operations_) {
+    oc_error_t ret = OC_INVALID_ARGUMENT;
+    if(NULL == counter_ || NULL == operations_) {
+        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): opaque_counter_apply_many - Arguments counter_ and operations_ require valid pointer(s).\n");
+        ret = OC_INVALID_ARGUMENT;
+        goto cleanup;
+    }
+    if(NULL == counter_->history) {
+        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): opaque_counter_apply_many - Argument counter_->history is not valid.\n");
+        ret = OC_INVALID_ARGUMENT;
+        goto cleanup;
+    }
+    if(0 == num_operations_) {
+        ret = OC_SUCCESS;
+        goto cleanup;
+    }
+    int64_t tmp_counter = (int64_t)counter_->counter;
+    const int64_t tmp_max = (int64_t)counter_->max;
+    const int64_t tmp_min = (int64_t)counter_->min;
+    // プレフライト
+    for(size_t i = 0; i != num_operations_; ++i) {
+        const int64_t tmp_arg = (int64_t)operations_[i].arg;
+        ret = OC_SUCCESS;
+        switch(operations_[i].code) {
+        case OC_OP_ADD: tmp_counter = tmp_counter + tmp_arg; break;
+        case OC_OP_DEC: tmp_counter = tmp_counter - 1;       break;
+        case OC_OP_INC: tmp_counter = tmp_counter + 1;       break;
+        default:
+            ret = OC_INVALID_ARGUMENT;
+            break;
+        }
+        if(tmp_counter > tmp_max) {
+            ret = OC_OVERFLOW;
+            goto cleanup;
+        } else if(tmp_counter < tmp_min) {
+            ret = OC_UNDERFLOW;
+            goto cleanup;
+        } else if(OC_SUCCESS != ret) {
+            goto cleanup;
+        }
+    }
+    // プレフライトsuccess -> commit
+    int32_t before = counter_->counter;
+    int32_t after = 0;
+    for(size_t i = 0; i != num_operations_; ++i) {
+        // 計算中に可視状態の値を変えると失敗時のロールバックが困難なので、opaque_counter_add/inc/decは呼ばない
+        // プレフライトで失敗しない前提だが、将来への備え
+        switch(operations_[i].code) {
+        case OC_OP_ADD: after = before + operations_[i].arg; break;
+        case OC_OP_DEC: after = before - 1;                  break;
+        case OC_OP_INC: after = before + 1;                  break;
+        default:
+            ret = OC_INVALID_ARGUMENT;
+            break;
+        }
+        if(OC_SUCCESS != ret) {
+            goto cleanup;
+        }
+        if(OC_OP_ADD == operations_[i].code && 0 == operations_[i].arg) {
+            // no-op
+        } else {
+            oc_hist_t hist = { 0 };
+            hist.after_value = after;
+            hist.before_value = before;
+            hist.opp = operations_[i].code;
+            const oc_ring_hist_err_t ret_push = oc_ring_hist_push(counter_->history, &hist);
+            if(OC_RING_HIST_SUCCESS != ret_push) {
+                if(OC_RING_HIST_INVALID_ARGUMENT == ret_push) {
+                    ret = OC_INVALID_ARGUMENT;
+                    goto cleanup;
+                } else if(OC_RING_HIST_NO_MEMORY == ret_push) {
+                    ret = OC_NO_MEMORY;
+                    goto cleanup;
+                }
+            }
+        }
+        before = after;
+    }
+    counter_->counter = after;
+cleanup:
+    return ret;
+}
+
 static void* oc_malloc(size_t size_) {
     void* ret = NULL;
 #ifdef TEST_BUILD
