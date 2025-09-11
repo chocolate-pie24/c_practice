@@ -2,22 +2,12 @@
 #include <stdio.h>
 #include <stdlib.h> // for malloc
 #include <string.h> // for memset
+#include <limits.h> // for SIZE_MAX
 
-#include "internal/oc_hist.h"
-#include "internal/oc_ring_hist.h"
+#include "opaque_counter/oc_hist.h"
+#include "opaque_counter/oc_ring_hist.h"
 
-#ifdef __clang__
-  #define NO_COVERAGE __attribute__((no_profile_instrument_function))
-#else
-  #define NO_COVERAGE
-#endif
-
-/*
-TODO:
-- [x] oc_ring_hist_pushテスト
-- [] oc_ring_hist_test_param_set
-- [] test_oc_ring_hist_test_param_set
-*/
+#include "define.h"
 
 #ifdef TEST_BUILD
 #include <assert.h>
@@ -45,7 +35,7 @@ oc_ring_hist_err_t oc_ring_hist_create(oc_ring_hist_t* const ring_history_, size
     oc_ring_hist_err_t ret = OC_RING_HIST_INVALID_ARGUMENT;
     oc_hist_t* tmp = NULL;
     if(NULL == ring_history_) {
-        fprintf(stderr, "[ERROR](INVALID_ARGUMENTI): oc_ring_hist_create - Argument ring_history_ requires a valid pointer.\n");
+        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): oc_ring_hist_create - Argument ring_history_ requires a valid pointer.\n");
         ret = OC_RING_HIST_INVALID_ARGUMENT;
         goto cleanup;
     }
@@ -124,8 +114,7 @@ oc_ring_hist_err_t oc_ring_hist_push(oc_ring_hist_t* const ring_history_, const 
     ring_history_->tail = (ring_history_->tail + 1) % ring_history_->capacity;
     if(ring_history_->len != ring_history_->capacity) {
         ring_history_->len++;
-    }
-    if(ring_history_->len == ring_history_->capacity) {
+    } else {
         ring_history_->head = (ring_history_->head + 1) % ring_history_->capacity;
     }
     ret = OC_RING_HIST_SUCCESS;
@@ -340,7 +329,7 @@ static NO_COVERAGE void test_oc_ring_hist_push(void) {
     hist.after_value = 6;
     push_ret = oc_ring_hist_push(&ring_history, &hist);
     assert(OC_RING_HIST_SUCCESS == push_ret);
-    assert(ring_history.head == 1);
+    assert(ring_history.head == 0);
     assert(ring_history.len == 3);
     assert(ring_history.tail == 0);
     assert(ring_history.histories[0].opp == OC_OP_ADD);
@@ -358,7 +347,7 @@ static NO_COVERAGE void test_oc_ring_hist_push(void) {
     hist.after_value = 8;
     push_ret = oc_ring_hist_push(&ring_history, &hist);
     assert(OC_RING_HIST_SUCCESS == push_ret);
-    assert(ring_history.head == 2);
+    assert(ring_history.head == 1);
     assert(ring_history.len == 3);
     assert(ring_history.tail == 1);
     assert(ring_history.histories[0].opp == OC_OP_ADD);
@@ -376,7 +365,7 @@ static NO_COVERAGE void test_oc_ring_hist_push(void) {
     hist.after_value = 10;
     push_ret = oc_ring_hist_push(&ring_history, &hist);
     assert(OC_RING_HIST_SUCCESS == push_ret);
-    assert(ring_history.head == 0);
+    assert(ring_history.head == 2);
     assert(ring_history.len == 3);
     assert(ring_history.tail == 2);
     assert(ring_history.histories[0].opp == OC_OP_ADD);

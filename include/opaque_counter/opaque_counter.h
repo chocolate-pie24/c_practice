@@ -1,6 +1,12 @@
 #ifndef OPAQUE_COUNTER_H
 #define OPAQUE_COUNTER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stdint.h>
+
 #include "opaque_counter_config.h"
 
 typedef struct opaque_counter opaque_counter_t;
@@ -25,4 +31,7 @@ oc_error_t opaque_counter_dec(opaque_counter_t* const counter_);
 
 oc_error_t opaque_counter_add(opaque_counter_t* const counter_, int32_t delta_);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

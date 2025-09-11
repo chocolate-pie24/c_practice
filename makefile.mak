@@ -9,6 +9,7 @@ DIRECTORIES = $(shell find $(SRC_DIR) -type d)
 OBJ_FILES = $(SRC_FILES:%=$(OBJ_DIR)/%.o)
 
 INCLUDE_FLAGS = -Iinclude
+INCLUDE_FLAGS += -Isrc/internal
 INCLUDE_FLAGS += -Itest/include
 CC = /opt/homebrew/opt/llvm/bin/clang
 
@@ -61,10 +62,6 @@ scaffold:
 $(OBJ_DIR)/%.c.o: %.c
 	@echo compiling $<...
 	$(CC) $< $(COMPILER_FLAGS) -c -o $@ $(INCLUDE_FLAGS)
-
-$(OBJ_DIR)/%.o: %.c
-	@mkdir -p $(dir $@)
-	$(CC) $(COMPILER_FLAGS) $(INCLUDE_FLAGS) -c $< -o $@
 
 .PHONY: link
 link: scaffold $(OBJ_FILES)

@@ -7,28 +7,10 @@
 #include "opaque_counter/opaque_counter.h"
 #include "opaque_counter/opaque_counter_config.h"
 
-#include "internal/oc_hist.h"
-#include "internal/oc_ring_hist.h"
+#include "opaque_counter/oc_hist.h"
+#include "opaque_counter/oc_ring_hist.h"
 
-#ifdef __clang__
-  #define NO_COVERAGE __attribute__((no_profile_instrument_function))
-#else
-  #define NO_COVERAGE
-#endif
-
-/*
-TODO: opaque_counter_create()
-- [x] test_oc_malloc()
-- [x] oc_malloc実装
-- [x] oc_config_valid_check()実装(opaque_counter_config.c)
-- [] [WIP]test_opaque_counter_create()
-- [x] oc_strdup()
-- [] oc_ring_hist_createエラーを発生させる@test_opaque_counter_create
-
-TODO: その他
-- [] TEST_BUILDではなく、TEST_ENABLEにしてRELEASEとDEBUGでもテストできるようにする
-- [] docsにカバレッジ関連マニュアルを置く
-*/
+#include "define.h"
 
 #ifdef TEST_BUILD
 #include <assert.h>
@@ -105,6 +87,7 @@ oc_error_t opaque_counter_create(opaque_counter_t** counter_, const oc_config_t*
         ret = OC_NO_MEMORY;
         goto cleanup;
     }
+    memset(tmp, 0, sizeof(*tmp));
     tmp->min = config_->min;
     tmp->max = config_->max;
     tmp->initial = config_->initial;

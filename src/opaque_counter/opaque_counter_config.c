@@ -4,11 +4,7 @@
 
 #include "opaque_counter/opaque_counter_config.h"
 
-#ifdef __clang__
-  #define NO_COVERAGE __attribute__((no_profile_instrument_function))
-#else
-  #define NO_COVERAGE
-#endif
+#include "define.h"
 
 #ifdef TEST_BUILD
 #include <assert.h>
@@ -33,6 +29,8 @@ bool oc_config_valid_check(const oc_config_t* const config_) {
             ret = false;
         } else if(config_->initial > config_->max) {
             ret = false;
+        } else if(NULL == config_->name_label) {
+            ret = false;
         } else {
             ret = true;
         }
@@ -47,6 +45,16 @@ static NO_COVERAGE void test_oc_config_valid_check(void) {
     assert(!ret);
 
     oc_config_t config = { 0 };
+
+    // name_label == NULL -> false
+    config.min = 1;
+    config.initial = 5;
+    config.max = 5;
+    config.history_capacity = 128;
+    config.name_label = NULL;
+    ret = oc_config_valid_check(&config);
+    assert(!ret);
+    config.name_label = "test_label";
 
     // min == initial -> true
     config.min = 1;

@@ -1,6 +1,10 @@
 #ifndef OC_RING_HIST_H
 #define OC_RING_HIST_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stddef.h>
 #include <stdbool.h>
 
@@ -36,4 +40,7 @@ void oc_ring_hist_destroy(oc_ring_hist_t* const ring_history_);
 
 oc_ring_hist_err_t oc_ring_hist_push(oc_ring_hist_t* const ring_history_, const oc_hist_t* const history_);
 
+#ifdef __cplusplus
+}
+#endif
 #endif
