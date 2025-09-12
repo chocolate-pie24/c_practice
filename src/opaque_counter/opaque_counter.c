@@ -33,6 +33,7 @@ static void test_opaque_counter_destroy(void);
 static void test_opaque_counter_inc(void);
 static void test_opaque_counter_dec(void);
 static void test_opaque_counter_add(void);
+static void test_opaque_counter_apply_many(void);
 
 void test_opaque_counter(void) {
     fprintf(stdout, "\t=== Testing test_oc_malloc\n");
@@ -47,6 +48,8 @@ void test_opaque_counter(void) {
     test_opaque_counter_dec();
     fprintf(stdout, "\t=== Testing test_opaque_counter_add\n");
     test_opaque_counter_add();
+    fprintf(stdout, "\t=== Testing test_opaque_counter_apply_many\n");
+    test_opaque_counter_apply_many();
 }
 #endif
 
@@ -250,6 +253,163 @@ cleanup:
     return ret;
 }
 
+#include <assert.h>
+static void NO_COVERAGE test_opaque_counter_apply_many(void) {
+    {
+        oc_error_t ret;
+        oc_op_t ops[1] = { 0 };
+        ops[0].code = OC_OP_ADD; ops[0].arg = 0;
+        ret = opaque_counter_apply_many(NULL, ops, 1);
+        assert(OC_INVALID_ARGUMENT == ret);
+
+        oc_config_t config = { 0 };
+        config.history_capacity = 128;
+        config.initial = 5;
+        config.min = 1;
+        config.max = 10;
+        config.name_label = "test_label";
+        opaque_counter_t* counter = 0;
+        ret = opaque_counter_create(&counter, &config);
+        ret = opaque_counter_apply_many(counter, NULL, 1);
+        assert(OC_INVALID_ARGUMENT == ret);
+
+        ret = opaque_counter_apply_many(counter, ops, 0);
+        assert(OC_SUCCESS == ret);
+
+        opaque_counter_destroy(&counter);
+    }
+    {
+        oc_op_t ops[1] = { 0 };
+        ops[0].code = OC_OP_ADD; ops[0].arg = 0;
+
+        oc_error_t ret;
+        oc_config_t config = { 0 };
+        opaque_counter_t* counter = 0;
+
+        config.history_capacity = 128;
+        config.initial = 5;
+        config.min = 1;
+        config.max = 10;
+        config.name_label = "test_label";
+        ret = opaque_counter_create(&counter, &config);
+        assert(OC_SUCCESS == ret);
+        assert(5 == counter->counter);
+        assert(1 == counter->min);
+        assert(10 == counter->max);
+
+        ret = opaque_counter_apply_many(counter, ops, 1);   // no_op
+        assert(OC_SUCCESS == ret);
+        assert(5 == counter->counter);
+
+        opaque_counter_destroy(&counter);
+    }
+    {
+        oc_error_t ret;
+        oc_config_t config = { 0 };
+        opaque_counter_t* counter = 0;
+
+        config.history_capacity = 3;
+        config.initial = 5;
+        config.min = 1;
+        config.max = 10;
+        config.name_label = "test_label";
+        ret = opaque_counter_create(&counter, &config);
+        assert(OC_SUCCESS == ret);
+        assert(5 == counter->counter);
+        assert(1 == counter->min);
+        assert(10 == counter->max);
+
+        oc_op_t ops[5] = { 0 };
+        ops[0].code = OC_OP_ADD; ops[0].arg = 2;    // 5->7 success
+        ops[1].code = OC_OP_ADD; ops[1].arg = 3;    // 7->10 success
+        ops[2].code = OC_OP_ADD; ops[2].arg = 1;    // 10->11 overflow
+        ops[3].code = OC_OP_ADD; ops[3].arg = 1;
+        ops[4].code = OC_OP_ADD; ops[4].arg = 1;
+
+        ret = opaque_counter_apply_many(counter, ops, 5);
+        assert(OC_OVERFLOW == ret);
+        assert(0 == counter->history->len);
+        assert(0 == counter->history->head);
+        assert(0 == counter->history->tail);
+
+        opaque_counter_destroy(&counter);
+    }
+    {
+        oc_error_t ret;
+        oc_config_t config = { 0 };
+        opaque_counter_t* counter = 0;
+
+        config.history_capacity = 3;
+        config.initial = 5;
+        config.min = 1;
+        config.max = 10;
+        config.name_label = "test_label";
+        ret = opaque_counter_create(&counter, &config);
+        assert(OC_SUCCESS == ret);
+        assert(5 == counter->counter);
+        assert(1 == counter->min);
+        assert(10 == counter->max);
+
+        oc_op_t ops[5] = { 0 };
+        ops[0].code = OC_OP_ADD; ops[0].arg = -2;    // 5->3 success
+        ops[1].code = OC_OP_ADD; ops[1].arg = -2;    // 3->1 success
+        ops[2].code = OC_OP_ADD; ops[2].arg = -1;    // 1->0 underflow
+        ops[3].code = OC_OP_ADD; ops[3].arg = 1;
+        ops[4].code = OC_OP_ADD; ops[4].arg = 1;
+
+        ret = opaque_counter_apply_many(counter, ops, 5);
+        assert(OC_UNDERFLOW == ret);
+        assert(0 == counter->history->len);
+        assert(0 == counter->history->head);
+        assert(0 == counter->history->tail);
+
+        opaque_counter_destroy(&counter);
+    }
+    {
+        oc_error_t ret;
+        oc_config_t config = { 0 };
+        opaque_counter_t* counter = 0;
+
+        config.history_capacity = 3;
+        config.initial = 5;
+        config.min = 1;
+        config.max = 10;
+        config.name_label = "test_label";
+        ret = opaque_counter_create(&counter, &config);
+        assert(OC_SUCCESS == ret);
+        assert(5 == counter->counter);
+        assert(1 == counter->min);
+        assert(10 == counter->max);
+
+        oc_op_t ops[5] = { 0 };
+        ops[0].code = OC_OP_ADD; ops[0].arg = -2;   // 5->3 success
+        ops[1].code = OC_OP_ADD; ops[1].arg = 3;    // 3->6 success
+        ops[2].code = OC_OP_INC; ops[2].arg = -1;   // 6->7 success
+        ops[3].code = OC_OP_DEC; ops[3].arg = 1;    // 7->6 success
+        ops[4].code = OC_OP_ADD; ops[4].arg = 3;    // 6->9 success
+
+        ret = opaque_counter_apply_many(counter, ops, 5);
+        assert(OC_SUCCESS == ret);
+        assert(3 == counter->history->len);
+        assert(7 == counter->history->histories[0].before_value);
+        assert(6 == counter->history->histories[0].after_value);
+
+        assert(6 == counter->history->histories[1].before_value);
+        assert(9 == counter->history->histories[1].after_value);
+
+        assert(6 == counter->history->histories[2].before_value);
+        assert(7 == counter->history->histories[2].after_value);
+
+        opaque_counter_destroy(&counter);
+    }
+}
+
+/*
+TODO:
+- [x] テスト
+- [] clang-tidy
+- [] clang-tidy mainブランチ
+*/
 oc_error_t opaque_counter_apply_many(opaque_counter_t* const counter_, const oc_op_t* const operations_, size_t num_operations_) {
     oc_error_t ret = OC_INVALID_ARGUMENT;
     if(NULL == counter_ || NULL == operations_) {
@@ -272,7 +432,6 @@ oc_error_t opaque_counter_apply_many(opaque_counter_t* const counter_, const oc_
     // プレフライト
     for(size_t i = 0; i != num_operations_; ++i) {
         const int64_t tmp_arg = (int64_t)operations_[i].arg;
-        ret = OC_SUCCESS;
         switch(operations_[i].code) {
         case OC_OP_ADD: tmp_counter = tmp_counter + tmp_arg; break;
         case OC_OP_DEC: tmp_counter = tmp_counter - 1;       break;
@@ -286,8 +445,6 @@ oc_error_t opaque_counter_apply_many(opaque_counter_t* const counter_, const oc_
             goto cleanup;
         } else if(tmp_counter < tmp_min) {
             ret = OC_UNDERFLOW;
-            goto cleanup;
-        } else if(OC_SUCCESS != ret) {
             goto cleanup;
         }
     }
@@ -304,9 +461,6 @@ oc_error_t opaque_counter_apply_many(opaque_counter_t* const counter_, const oc_
         default:
             ret = OC_INVALID_ARGUMENT;
             break;
-        }
-        if(OC_SUCCESS != ret) {
-            goto cleanup;
         }
         if(OC_OP_ADD == operations_[i].code && 0 == operations_[i].arg) {
             // no-op
@@ -329,6 +483,7 @@ oc_error_t opaque_counter_apply_many(opaque_counter_t* const counter_, const oc_
         before = after;
     }
     counter_->counter = after;
+    ret = OC_SUCCESS;
 cleanup:
     return ret;
 }
