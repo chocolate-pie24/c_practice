@@ -34,6 +34,10 @@ typedef struct oc_op {
 
 oc_error_t opaque_counter_create(opaque_counter_t** counter_, const oc_config_t* const config_);
 
+oc_error_t opaque_counter_move(opaque_counter_t** src_counter_, opaque_counter_t** out_counter_);
+
+oc_error_t opaque_counter_clone(opaque_counter_t* src_counter_, opaque_counter_t** out_counter_);
+
 void opaque_counter_destroy(opaque_counter_t** counter_);
 
 oc_error_t opaque_counter_inc(opaque_counter_t* const counter_);

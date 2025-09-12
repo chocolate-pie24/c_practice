@@ -36,6 +36,8 @@ void oc_ring_hist_test_param_set(const oc_ring_hist_malloc_test_t* const test_pa
 
 oc_ring_hist_err_t oc_ring_hist_create(oc_ring_hist_t* const ring_history_, size_t capacity_);
 
+oc_ring_hist_err_t oc_ring_hist_clone(const oc_ring_hist_t* const src_, oc_ring_hist_t** dst_);
+
 void oc_ring_hist_destroy(oc_ring_hist_t* const ring_history_);
 
 oc_ring_hist_err_t oc_ring_hist_push(oc_ring_hist_t* const ring_history_, const oc_hist_t* const history_);

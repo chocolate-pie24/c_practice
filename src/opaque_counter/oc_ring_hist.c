@@ -81,6 +81,55 @@ cleanup:
     return ret;
 }
 
+oc_ring_hist_err_t oc_ring_hist_clone(const oc_ring_hist_t* const src_, oc_ring_hist_t** dst_) {
+    oc_ring_hist_err_t ret = OC_RING_HIST_INVALID_ARGUMENT;
+    if(NULL == src_ || NULL == dst_) {
+        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): oc_ring_hist_clone - Arguments src_ and dst_ require valid pointer(s).\n");
+        ret = OC_RING_HIST_INVALID_ARGUMENT;
+        goto cleanup;
+    }
+    if(NULL != *dst_) {
+        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): oc_ring_hist_clone - Argument *dst_ requires a null pointer.\n");
+        ret = OC_RING_HIST_INVALID_ARGUMENT;
+        goto cleanup;
+    }
+    oc_ring_hist_t* tmp = NULL;
+    tmp = oc_malloc(sizeof(*tmp));
+    if(NULL == tmp) {
+        fprintf(stderr, "[ERROR](NO_MEMORY): oc_ring_hist_clone - Failed to allocate ring history memory.\n");
+        ret = OC_RING_HIST_NO_MEMORY;
+        goto cleanup;
+    }
+    memset(tmp, 0, sizeof(*tmp));
+
+    tmp->histories = oc_malloc(sizeof(oc_hist_t) * src_->capacity);
+    if(NULL == tmp->histories) {
+        fprintf(stderr, "[ERROR](NO_MEMORY): oc_ring_hist_clone - Failed to allocate history buffer memory.\n");
+        ret = OC_RING_HIST_NO_MEMORY;
+        goto cleanup;
+    }
+    memset(tmp->histories, 0, sizeof(sizeof(oc_hist_t) * src_->capacity));
+    memcpy(tmp->histories, src_->histories, sizeof(oc_hist_t) * src_->capacity);
+    tmp->head = src_->head;
+    tmp->tail = src_->tail;
+    tmp->len = src_->len;
+    tmp->capacity = src_->len;
+    *dst_ = tmp;
+    ret = OC_RING_HIST_SUCCESS;
+cleanup:
+    if(OC_RING_HIST_SUCCESS != ret) {
+        if(NULL != tmp && NULL != tmp->histories) {
+            free(tmp->histories);
+            tmp->histories = NULL;
+        }
+        if(NULL != tmp) {
+            free(tmp);
+            tmp = NULL;
+        }
+    }
+    return ret;
+}
+
 // ring_history_ == NULLでno-op
 void oc_ring_hist_destroy(oc_ring_hist_t* const ring_history_) {
     if(NULL == ring_history_) {
