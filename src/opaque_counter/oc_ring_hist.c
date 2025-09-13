@@ -27,6 +27,40 @@ void test_oc_ring_hist(void) {
 }
 #endif
 
+/*
+TODO:
+- [x] エラー処理マクロ化
+- [] pushをvoidに変更
+*/
+
+#define CHECK_ARG_NULL_GOTO_CLEANUP(ptr_, function_name_, val_name_) \
+    if(NULL == ptr_) { \
+        fprintf(stderr, "[ERROR](OC_RING_HIST::INVALID_ARGUMENT): %s - Argument %s requires a valid pointer.\n", function_name_, val_name_); \
+        ret = OC_RING_HIST_INVALID_ARGUMENT; \
+        goto cleanup; \
+    } \
+
+#define CHECK_ARG_NOT_NULL_GOTO_CLEANUP(ptr_, function_name_, val_name_) \
+    if(NULL != ptr_) { \
+        fprintf(stderr, "[ERROR](OC_RING_HIST::INVALID_ARGUMENT): %s - Argument %s requires a null pointer.\n", function_name_, val_name_); \
+        ret = OC_RING_HIST_INVALID_ARGUMENT; \
+        goto cleanup; \
+    } \
+
+#define CHECK_ARG_NOT_VALID_GOTO_CLEANUP(is_valid_, function_name_, val_name_) \
+    if(!(is_valid_)) { \
+        fprintf(stderr, "[ERROR](OC_RING_HIST::INVALID_ARGUMENT): %s - Argument %s is not valid.\n", function_name_, val_name_); \
+        ret = OC_RING_HIST_INVALID_ARGUMENT; \
+        goto cleanup; \
+    } \
+
+#define CHECK_ALLOCATE_FAIL_GOTO_CLEANUP(ptr_, function_name_, val_name_) \
+    if(NULL == ptr_) { \
+        fprintf(stderr, "[ERROR](OC_RING_HIST::NO_MEMORY): %s - Failed to allocate %s memory.\n", function_name_, val_name_); \
+        ret = OC_RING_HIST_NO_MEMORY; \
+        goto cleanup; \
+    } \
+
 static void* oc_malloc(size_t size_);
 
 // ring_history_ == NULLでOC_RING_HIST_INVALID_ARGUMENT
@@ -35,88 +69,72 @@ static void* oc_malloc(size_t size_);
 // oc_hist_t配列メモリ確保失敗でOC_RING_HIST_NO_MEMORY
 oc_ring_hist_err_t oc_ring_hist_create(oc_ring_hist_t* const ring_history_, size_t capacity_) {
     oc_ring_hist_err_t ret = OC_RING_HIST_INVALID_ARGUMENT;
-    oc_hist_t* tmp = NULL;
-    if(NULL == ring_history_) {
-        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): oc_ring_hist_create - Argument ring_history_ requires a valid pointer.\n");
-        ret = OC_RING_HIST_INVALID_ARGUMENT;
-        goto cleanup;
-    }
-    if(0 == capacity_) {
-        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): oc_ring_hist_create - Provided capacity_ is not valid.\n");
-        ret = OC_RING_HIST_INVALID_ARGUMENT;
-        goto cleanup;
-    }
-    if(NULL != ring_history_->histories) {
-        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): oc_ring_hist_create - Provided ring_history_ is not valid.\n");
-        ret = OC_RING_HIST_INVALID_ARGUMENT;
-        goto cleanup;
-    }
-    if(capacity_ > SIZE_MAX / sizeof(oc_hist_t)) {
-        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): oc_ring_hist_create - Provided capacity_ is too big.\n");
-        ret = OC_RING_HIST_NO_MEMORY;
-        goto cleanup;
-    }
-    tmp = (oc_hist_t*)oc_malloc(sizeof(oc_hist_t) * capacity_);
-    if(NULL == tmp) {
-        fprintf(stderr, "[ERROR](NO_MEMORY): oc_ring_hist_create - Failed to allocate oc_hist_t memory.\n");
-        ret = OC_RING_HIST_NO_MEMORY;
-        goto cleanup;
-    }
-    memset(tmp, 0, sizeof(oc_hist_t) * capacity_);
+    oc_hist_t* tmp_ring_history = NULL;
+
+    // Preconditions
+    CHECK_ARG_NULL_GOTO_CLEANUP(ring_history_, "oc_ring_hist_create", "ring_history_");
+    CHECK_ARG_NOT_NULL_GOTO_CLEANUP(ring_history_->histories, "oc_ring_hist_create", "ring_history_->histories");
+    CHECK_ARG_NOT_VALID_GOTO_CLEANUP(0 != capacity_, "oc_ring_hist_create", "capacity_");
+    CHECK_ARG_NOT_VALID_GOTO_CLEANUP(capacity_ < SIZE_MAX / sizeof(oc_hist_t), "oc_ring_hist_create", "capacity_");
+
+    // Simulation
+    const size_t alloc_size = sizeof(oc_hist_t) * capacity_;
+    tmp_ring_history = (oc_hist_t*)oc_malloc(alloc_size);
+    CHECK_ALLOCATE_FAIL_GOTO_CLEANUP(tmp_ring_history, "oc_ring_hist_create", "tmp_ring_history");
+    memset(tmp_ring_history, 0, alloc_size);
+
+    // Commit
     ring_history_->capacity = capacity_;
     ring_history_->head = 0;
     ring_history_->tail = 0;
     ring_history_->len = 0;
-    ring_history_->histories = tmp;
+    ring_history_->histories = tmp_ring_history;
     ret = OC_RING_HIST_SUCCESS;
+
 cleanup:
-    if(OC_RING_HIST_SUCCESS != ret) {
-        // 現状ではtmp = malloc成功した後にエラーとなることはないので、tmpをfreeする必要はなし
-        // ただ、将来的に仕様変更になった時のためにコメントとして残しておく
-        // if(NULL != tmp) {
-        //     free(tmp);
-        //     tmp = NULL;
+    // 現状ではtmp_ring_history = malloc成功した後にエラーとなることはないので、tmp_ring_historyをfreeする必要はなし
+    // ただ、将来的に仕様変更になった時のためにコメントとして残しておく
+    // if(OC_RING_HIST_SUCCESS != ret) {
+        // if(NULL != tmp_ring_history) {
+        //     free(tmp_ring_history);
+        //     tmp_ring_history = NULL;
         // }
-    }
+    // }
     return ret;
 }
 
 oc_ring_hist_err_t oc_ring_hist_clone(const oc_ring_hist_t* const src_, oc_ring_hist_t** dst_) {
     oc_ring_hist_err_t ret = OC_RING_HIST_INVALID_ARGUMENT;
-    if(NULL == src_ || NULL == dst_) {
-        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): oc_ring_hist_clone - Arguments src_ and dst_ require valid pointer(s).\n");
-        ret = OC_RING_HIST_INVALID_ARGUMENT;
-        goto cleanup;
-    }
-    if(NULL != *dst_) {
-        fprintf(stderr, "[ERROR](INVALID_ARGUMENT): oc_ring_hist_clone - Argument *dst_ requires a null pointer.\n");
-        ret = OC_RING_HIST_INVALID_ARGUMENT;
-        goto cleanup;
-    }
     oc_ring_hist_t* tmp = NULL;
+
+    // Preconditions
+    CHECK_ARG_NULL_GOTO_CLEANUP(src_, "oc_ring_hist_clone", "src_");
+    CHECK_ARG_NULL_GOTO_CLEANUP(dst_, "oc_ring_hist_clone", "dst_");
+    CHECK_ARG_NULL_GOTO_CLEANUP(src_->histories, "oc_ring_hist_clone", "src_->histories");
+    CHECK_ARG_NOT_VALID_GOTO_CLEANUP(0 != src_->capacity, "oc_ring_hist_clone", "src_->capacity");
+    CHECK_ARG_NOT_NULL_GOTO_CLEANUP(*dst_, "oc_ring_hist_clone", "*dst_");
+
+    // Simulation
     tmp = oc_malloc(sizeof(*tmp));
-    if(NULL == tmp) {
-        fprintf(stderr, "[ERROR](NO_MEMORY): oc_ring_hist_clone - Failed to allocate ring history memory.\n");
-        ret = OC_RING_HIST_NO_MEMORY;
-        goto cleanup;
-    }
+    CHECK_ALLOCATE_FAIL_GOTO_CLEANUP(tmp, "oc_ring_hist_clone", "tmp");
     memset(tmp, 0, sizeof(*tmp));
 
     tmp->histories = oc_malloc(sizeof(oc_hist_t) * src_->capacity);
-    if(NULL == tmp->histories) {
-        fprintf(stderr, "[ERROR](NO_MEMORY): oc_ring_hist_clone - Failed to allocate history buffer memory.\n");
-        ret = OC_RING_HIST_NO_MEMORY;
-        goto cleanup;
-    }
-    memset(tmp->histories, 0, sizeof(sizeof(oc_hist_t) * src_->capacity));
-    memcpy(tmp->histories, src_->histories, sizeof(oc_hist_t) * src_->capacity);
+    CHECK_ALLOCATE_FAIL_GOTO_CLEANUP(tmp->histories, "oc_ring_hist_clone", "tmp->histories");
+    memset(tmp->histories, 0, sizeof(*tmp->histories));
+
+    memcpy(tmp->histories, src_->histories, sizeof(*tmp->histories));
     tmp->head = src_->head;
     tmp->tail = src_->tail;
     tmp->len = src_->len;
     tmp->capacity = src_->len;
+
+    // Commit
     *dst_ = tmp;
     ret = OC_RING_HIST_SUCCESS;
+
 cleanup:
+    // Cleanup / return
     if(OC_RING_HIST_SUCCESS != ret) {
         if(NULL != tmp && NULL != tmp->histories) {
             free(tmp->histories);
@@ -127,6 +145,7 @@ cleanup:
             tmp = NULL;
         }
     }
+
     return ret;
 }
 
@@ -265,7 +284,7 @@ static NO_COVERAGE void test_oc_ring_hist_create(void) {
         oc_ring_hist_err_t ret = OC_RING_HIST_INVALID_ARGUMENT;
         oc_ring_hist_t ring_history = { 0 };
         ret = oc_ring_hist_create(&ring_history, SIZE_MAX);
-        assert(OC_RING_HIST_NO_MEMORY == ret);
+        assert(OC_RING_HIST_INVALID_ARGUMENT == ret);
         oc_ring_hist_destroy(&ring_history);
     }
     {
